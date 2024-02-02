@@ -83,6 +83,14 @@ pub fn build(b: *std.Build) void {
     merge_coverage_results.step.dependOn (&kcov_exe_unit_tests.step);
     merge_coverage_results.step.dependOn (&kcov_lipu_unit_tests.step);
 
+
+    const process_coverage_results = b.addSystemCommand (&.{
+        "python3",
+        "tools/coverage.py",
+        "kcov-out/coverage/kcov-merged",
+    });
+    process_coverage_results.step.dependOn (&merge_coverage_results.step);
+
     const coverage_step = b.step ("coverage", "Run coverage unit tests");
-    coverage_step.dependOn (&merge_coverage_results.step);
+    coverage_step.dependOn (&process_coverage_results.step);
 }

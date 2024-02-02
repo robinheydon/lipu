@@ -20,7 +20,6 @@ test :
 coverage :
 	rm -rf kcov-out
 	zig build coverage --summary all --color on --verbose
-	ls -al kcov-out
 
 clean :
 	rm -rf kcov-out
