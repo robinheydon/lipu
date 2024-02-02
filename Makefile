@@ -8,6 +8,8 @@ ARGS += -o test.ast
 ARGS += -Dargs
 ARGS += -Dtokens
 
+all : coverage
+
 run : zig-out/bin/lipu test.lipu
 	./zig-out/bin/lipu $(ARGS)
 

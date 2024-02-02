@@ -2,55 +2,59 @@ const std = @import ("std");
 
 pub const TokenKind = enum
 {
-    unknown,
-    letter,
-    digit,
-    number,
-    space,
-    carriage_return,
-    line_feed,
-    end_of_line,
-    comment,
-    hex,
-    oct,
-    bin,
-    bang,
-    double_quote,
-    hash,
-    dollar,
-    percent,
     ampersand,
-    single_quote,
-    open_paren,
-    close_paren,
-    asterisk,
-    plus,
-    comma,
-    minus,
-    dot,
-    slash,
-    colon,
-    semicolon,
-    less_than,
     assign,
-    greater_than,
-    query,
+    asterisk,
     at,
-    open_square,
-    escape,
-    close_square,
-    hat,
-    tick,
-    open_block,
+    bang,
     bar,
+    bin,
     close_block,
-    tilde,
-    less_than_or_equal,
-    greater_than_or_equal,
+    close_paren,
+    close_square,
+    colon,
+    comma,
+    command,
+    comment,
+    digit,
+    dollar,
+    dot,
+    double_quote,
+    end_of_line,
     equal,
+    escape,
+    false,
+    greater_than,
+    greater_than_or_equal,
+    hash,
+    hat,
+    hex,
+    less_than,
+    less_than_or_equal,
+    letter,
+    minus,
     not_equal,
+    number,
+    oct,
+    open_block,
+    open_paren,
+    open_square,
+    percent,
+    plus,
+    query,
+    semicolon,
     shift_left,
     shift_right,
+    single_quote,
+    slash,
+    space,
+    tick,
+    tilde,
+    true,
+    unknown,
+    @"and",
+    @"or",
+    not,
 };
 
 pub const Token = struct
@@ -133,6 +137,36 @@ pub const TokenIter = struct
                     if (self.content[self.index] == '#')
                     {
                         self.index += 1;
+                        while (self.index < self.content.len) : (self.index += 1)
+                        {
+                            switch (self.content[self.index])
+                            {
+                                '\r', '\n' => break,
+                                else => {}
+                            }
+                        }
+
+                        if (self.index < self.content.len and self.content[self.index] == '\r')
+                        {
+                            self.index += 1;
+                            if (self.index < self.content.len and self.content[self.index] == '\n')
+                            {
+                                self.index += 1;
+                            }
+                        }
+                        else if (self.index < self.content.len and self.content[self.index] == '\n')
+                        {
+                            self.index += 1;
+                        }
+
+                        while (self.index < self.content.len) : (self.index += 1)
+                        {
+                            switch (self.content[self.index])
+                            {
+                                ' ', '\t' => {},
+                                else => break
+                            }
+                        }
                         break :blk .comment;
                     }
                 }
@@ -198,7 +232,32 @@ pub const TokenIter = struct
             '?' => .query,
             '@' => .at,
             '[' => .open_square,
-            '\\' => .escape,
+            '\\' => blk: {
+                if (self.index < self.content.len)
+                {
+                    switch (self.content[self.index])
+                    {
+                        '_', 'A' ... 'Z', 'a' ... 'z' => {
+                            self.index += 1;
+                            while (self.index < self.content.len) : (self.index += 1)
+                            {
+                                switch (self.content[self.index])
+                                {
+                                    '_', 'a' ... 'z', 'A' ... 'Z', '0' ... '9' => {},
+                                    else => break
+                                }
+                            }
+                            break :blk .command;
+                        },
+                        ' ', '\t', '\r', '\n' => break :blk .escape,
+                        else => {
+                            self.index += 1;
+                            break :blk .unknown;
+                        }
+                    }
+                }
+                break :blk .escape;
+            },
             ']' => .close_square,
             '^' => .hat,
             '`' => .tick,
@@ -216,9 +275,32 @@ pub const TokenIter = struct
                         '0' ... '9',
                         'a' ... 'z',
                         'A' ... 'Z' => {},
-                        else => break :blk .letter
+                        else => break
                     }
                 }
+
+                const word = self.content[start_index .. self.index];
+                if (std.mem.eql (u8, "true", word))
+                {
+                    break :blk .true;
+                }
+                else if (std.mem.eql (u8, "false", word))
+                {
+                    break :blk .false;
+                }
+                else if (std.mem.eql (u8, "and", word))
+                {
+                    break :blk .@"and";
+                }
+                else if (std.mem.eql (u8, "or", word))
+                {
+                    break :blk .@"or";
+                }
+                else if (std.mem.eql (u8, "not", word))
+                {
+                    break :blk .@"not";
+                }
+
                 break :blk .letter;
             },
 
@@ -310,7 +392,7 @@ pub fn tokenize (content: []const u8) TokenIter
     };
 }
 
-test "simple"
+test "token: simple"
 {
     const input = "Hello, World";
 
@@ -329,7 +411,7 @@ test "simple"
     try std.testing.expectFmt (expected, "{s}", .{output});
 }
 
-test "end of lines"
+test "token: end of lines"
 {
     const input = "1\r2\n3\r\n4\n\r6";
 
@@ -354,7 +436,7 @@ test "end of lines"
     try std.testing.expectFmt (expected, "{s}", .{output});
 }
 
-test "words"
+test "token: words"
 {
     const input = "a _b c_ a_A_z_Z_09";
 
@@ -376,7 +458,7 @@ test "words"
     try std.testing.expectFmt (expected, "{s}", .{output});
 }
 
-test "digits and numbers"
+test "token: digits and numbers"
 {
     const input = "0 1 10 10.1 10.9 0xCafe_Beef 0o774_215 0b1100_0101";
 
@@ -406,7 +488,7 @@ test "digits and numbers"
     try std.testing.expectFmt (expected, "{s}", .{output});
 }
 
-test "ascii"
+test "token: ascii"
 {
     const input = "! \" # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ ` { | } ~";
     var iter = tokenize (input);
@@ -483,7 +565,7 @@ test "ascii"
     try std.testing.expectFmt (expected, "{s}", .{output});
 }
 
-test "compound symbols"
+test "token: compound symbols"
 {
     const input = "<= >= == != << >>";
     var iter = tokenize (input);
@@ -503,6 +585,88 @@ test "compound symbols"
         \\  shift_left "<<"
         \\  space " "
         \\  shift_right ">>"
+    ;
+
+    try std.testing.expectFmt (expected, "{s}", .{output});
+}
+
+test "token: comments"
+{
+    const input = "one## a comment\n  two##\r  three##\r\n  four";
+    var iter = tokenize (input);
+    const output = try iter.dump (std.testing.allocator);
+    defer std.testing.allocator.free (output);
+
+    const expected =
+        \\Tokens:
+        \\  letter "one"
+        \\  comment "## a comment\n  "
+        \\  letter "two"
+        \\  comment "##\r  "
+        \\  letter "three"
+        \\  comment "##\r\n  "
+        \\  letter "four"
+    ;
+
+    try std.testing.expectFmt (expected, "{s}", .{output});
+}
+
+test "token: commands"
+{
+    const input = "\\_ \\Hello \\a42_39z";
+    var iter = tokenize (input);
+    const output = try iter.dump (std.testing.allocator);
+    defer std.testing.allocator.free (output);
+
+    const expected =
+        \\Tokens:
+        \\  command "\\_"
+        \\  space " "
+        \\  command "\\Hello"
+        \\  space " "
+        \\  command "\\a42_39z"
+    ;
+
+    try std.testing.expectFmt (expected, "{s}", .{output});
+}
+
+test "token: escaped symbols and numbers"
+{
+    const input = "\\## \\49";
+    var iter = tokenize (input);
+    const output = try iter.dump (std.testing.allocator);
+    defer std.testing.allocator.free (output);
+
+    const expected =
+        \\Tokens:
+        \\  unknown "\\#"
+        \\  hash "#"
+        \\  space " "
+        \\  unknown "\\4"
+        \\  digit "9"
+    ;
+
+    try std.testing.expectFmt (expected, "{s}", .{output});
+}
+
+test "token: reserved words"
+{
+    const input = "true false and or not";
+    var iter = tokenize (input);
+    const output = try iter.dump (std.testing.allocator);
+    defer std.testing.allocator.free (output);
+
+    const expected =
+        \\Tokens:
+        \\  true "true"
+        \\  space " "
+        \\  false "false"
+        \\  space " "
+        \\  and "and"
+        \\  space " "
+        \\  or "or"
+        \\  space " "
+        \\  not "not"
     ;
 
     try std.testing.expectFmt (expected, "{s}", .{output});
