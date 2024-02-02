@@ -55,7 +55,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_lipu_unit_tests.step);
     test_step.dependOn(&run_exe_unit_tests.step);
 
-    std.fs.cwd ().makeDir ("kcov-out") catch unreachable;
+    std.fs.cwd ().makeDir ("kcov-out") catch {};
 
     const kcov_exe_unit_tests = b.addSystemCommand (&.{
         "kcov",

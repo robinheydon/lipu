@@ -6,7 +6,6 @@ dot = pathlib.Path (".")
 absolute_dot = dot.absolute ()
 
 path = pathlib.Path (sys.argv[1]) / "coverage.json"
-print (path)
 
 fp = open (path, "rb")
 content = fp.read ()
