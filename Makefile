@@ -11,19 +11,19 @@ ARGS += -Dtokens
 all : coverage
 
 run : zig-out/bin/lipu test.lipu
-	./zig-out/bin/lipu $(ARGS)
+	@./zig-out/bin/lipu $(ARGS)
 
 zig-out/bin/lipu : $(SRCS)
-	zig build --summary all --color on -freference-trace=32
+	@zig build --summary all --color on -freference-trace=32
 
 test :
-	zig build test --summary all --color on
+	@zig build test --summary all --color on
 
 coverage :
-	rm -rf kcov-out
-	zig build coverage --summary all --color on
+	@zig build coverage --summary none --color on
+	@python3 tools/coverage.py kcov-out/coverage/kcov-merged
 
 clean :
-	rm -rf kcov-out
-	rm -rf zig-cache
-	rm -rf zig-out
+	@rm -rf kcov-out
+	@rm -rf zig-cache
+	@rm -rf zig-out

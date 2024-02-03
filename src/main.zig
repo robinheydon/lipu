@@ -32,8 +32,8 @@ pub fn main() !void {
         log.info("{n}", .{options});
     }
 
-    log.info("lipu", .{});
     log.info("version: {}", .{lipu.version});
+    log.info("lipu", .{});
 
     var doc = lipu.init (.{
         .allocator = allocator,

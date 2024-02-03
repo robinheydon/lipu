@@ -11,6 +11,7 @@ pub const Options = struct
     d_args : bool = false,
     d_tokens : bool = false,
     d_ast : bool = false,
+    d_parsing : bool = false,
 
     pub fn deinit (self: *Options) void
     {
@@ -70,6 +71,8 @@ pub const Options = struct
         try writer.print (".d_tokens={}", .{self.d_tokens});
         try writer.writeAll (add);
         try writer.print (".d_ast={}", .{self.d_ast});
+        try writer.writeAll (add);
+        try writer.print (".d_parsing={}", .{self.d_parsing});
         for (0.., self.errors.items) |i, message|
         {
             try writer.writeAll (add);
@@ -128,6 +131,10 @@ pub fn parse (allocator: std.mem.Allocator, args: []const []const u8) !Options
         {
             options.d_ast = true;
         }
+        else if (std.mem.eql (u8, args[i], "-Dparsing"))
+        {
+            options.d_parsing = true;
+        }
         else if (args[i][0] == '-')
         {
             const message = try std.fmt.allocPrint (allocator, "Argument \"{}\" is unknown", .{std.zig.fmtEscapes (args[i])});
@@ -162,6 +169,7 @@ test "command_line_parser: options"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
+        \\  .d_parsing=false,
         \\}
         ;
 
@@ -174,7 +182,7 @@ test "command_line_parser: null options inline"
     defer options.deinit ();
 
     const expected =
-        \\Options{ .verbosity=0, .quiet=false, .d_args=false, .d_tokens=false, .d_ast=false }
+        \\Options{ .verbosity=0, .quiet=false, .d_args=false, .d_tokens=false, .d_ast=false, .d_parsing=false }
         ;
 
     try std.testing.expectFmt (expected, "{}", .{options});
@@ -192,6 +200,7 @@ test "command_line_parser: -v"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
+        \\  .d_parsing=false,
         \\}
         ;
 
@@ -210,6 +219,7 @@ test "command_line_parser: -vv"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
+        \\  .d_parsing=false,
         \\}
         ;
 
@@ -228,6 +238,7 @@ test "command_line_parser: -vvv"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
+        \\  .d_parsing=false,
         \\}
         ;
 
@@ -246,6 +257,7 @@ test "command_line_parser: -q"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
+        \\  .d_parsing=false,
         \\}
         ;
 
@@ -264,6 +276,7 @@ test "command_line_parser: --quiet"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
+        \\  .d_parsing=false,
         \\}
         ;
 
@@ -282,6 +295,7 @@ test "command_line_parser: -unknown-flag"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
+        \\  .d_parsing=false,
         \\  .errors[0]="Argument \"-unknown-flag\" is unknown",
         \\}
         ;
@@ -303,6 +317,7 @@ test "command_line_parser: input files"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
+        \\  .d_parsing=false,
         \\}
         ;
 
@@ -324,6 +339,7 @@ test "command_line_parser: output files"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
+        \\  .d_parsing=false,
         \\}
         ;
 
@@ -342,6 +358,7 @@ test "command_line_parser: debug args"
         \\  .d_args=true,
         \\  .d_tokens=false,
         \\  .d_ast=false,
+        \\  .d_parsing=false,
         \\}
         ;
 
@@ -360,6 +377,7 @@ test "command_line_parser: debug tokens"
         \\  .d_args=false,
         \\  .d_tokens=true,
         \\  .d_ast=false,
+        \\  .d_parsing=false,
         \\}
         ;
 
@@ -378,6 +396,26 @@ test "command_line_parser: debug ast"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=true,
+        \\  .d_parsing=false,
+        \\}
+        ;
+
+    try std.testing.expectFmt (expected, "{n}", .{options});
+}
+
+test "command_line_parser: debug parsing"
+{
+    var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-Dparsing"});
+    defer options.deinit ();
+
+    const expected =
+        \\Options{
+        \\  .verbosity=0,
+        \\  .quiet=false,
+        \\  .d_args=false,
+        \\  .d_tokens=false,
+        \\  .d_ast=false,
+        \\  .d_parsing=true,
         \\}
         ;
 

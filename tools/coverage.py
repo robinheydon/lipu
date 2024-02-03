@@ -25,6 +25,4 @@ output.append ("="*79)
 output.append (f"{'Total:':<57} {data['percent_covered']}% ({data['covered_lines']}/{data['total_lines']})")
 output.append ("-"*79)
 
-fp = open (sys.argv[2], "w")
-fp.write ('\n'.join (output))
-fp.close ()
+print ('\n'.join (output), file = sys.stderr)
