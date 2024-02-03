@@ -3,21 +3,7 @@ const lipu = @import ("lipu");
 
 const command_line_parser = @import ("command_line_parser.zig");
 
-pub const std_options = struct {
-    pub const log_level = .debug;
-    pub const logFn = log_function;
-};
-
-pub fn log_function (
-    comptime level: std.log.Level,
-    comptime scope: @TypeOf (.EnumLiteral),
-    comptime format: []const u8,
-    args: anytype,
-) void {
-    const scope_prefix = "(" ++ @tagName (scope) ++ "): ";
-    const prefix = "[" ++ comptime level.asText () ++ "]" ++ scope_prefix;
-    std.debug.print (prefix ++ format ++ "\n", args);
-}
+const log = lipu.log;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator (.{}){};
@@ -37,21 +23,23 @@ pub fn main() !void {
         std.process.exit (1);
     }
 
+    log.init (.{
+        .allocator = allocator,
+    });
+
     if (options.d_args)
     {
-        std.log.info("{n}\n", .{options});
+        log.info("{n}", .{options});
     }
+
+    log.info("lipu", .{});
+    log.info("version: {}", .{lipu.version});
 
     var ast = try lipu.parse (allocator, .{
         .debug_tokens = options.d_tokens,
         .filename = options.inputs.items[0],
     });
     defer ast.deinit ();
-
-    std.log.info("lipu\n", .{});
-    std.log.info("{}\n", .{ast});
-
-    std.log.info("version: {}\n", .{lipu.version});
 }
 
 test "main test" {
