@@ -23,17 +23,20 @@ pub fn main() !void {
         std.process.exit (1);
     }
 
-    log.init (.{
+    try log.init (.{
         .allocator = allocator,
+        .verbosity = options.verbosity,
+        .quiet = options.quiet,
+        .filename = options.log_filename,
     });
+    defer log.deinit ();
 
     if (options.d_args)
     {
         log.info("{n}", .{options});
     }
 
-    log.info("version: {}", .{lipu.version});
-    log.info("lipu", .{});
+    log.info("lipu v{}", .{lipu.version});
 
     var doc = lipu.init (.{
         .allocator = allocator,
@@ -41,11 +44,14 @@ pub fn main() !void {
     });
     defer doc.deinit ();
 
-    try doc.import (options.inputs.items[0]);
+    if (options.inputs.items.len > 0)
+    {
+        try doc.import (options.inputs.items[0]);
 
-    const dump = try doc.dump (allocator);
-    defer allocator.free (dump);
-    log.info ("{s}", .{dump});
+        const dump = try doc.dump (allocator);
+        defer allocator.free (dump);
+        log.info ("{s}", .{dump});
+    }
 }
 
 test "main test" {

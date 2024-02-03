@@ -8,6 +8,7 @@ pub const Options = struct
     inputs : std.ArrayListUnmanaged ([]const u8) = .{},
     outputs : std.ArrayListUnmanaged ([]const u8) = .{},
     errors : std.ArrayListUnmanaged ([]const u8) = .{},
+    log_filename : ?[]const u8 = null,
     d_args : bool = false,
     d_tokens : bool = false,
     d_ast : bool = false,
@@ -25,6 +26,10 @@ pub const Options = struct
             self.allocator.free (item);
         }
         self.outputs.deinit (self.allocator);
+        if (self.log_filename) |filename|
+        {
+            self.allocator.free (filename);
+        }
         for (self.errors.items) |item|
         {
             self.allocator.free (item);
@@ -64,6 +69,11 @@ pub const Options = struct
         {
             try writer.writeAll (add);
             try writer.print (".outputs[{}]=\"{}\"", .{i, std.zig.fmtEscapes (output)});
+        }
+        if (self.log_filename) |filename|
+        {
+            try writer.writeAll (add);
+            try writer.print (".log_filename=\"{}\"", .{std.zig.fmtEscapes (filename)});
         }
         try writer.writeAll (add);
         try writer.print (".d_args={}", .{self.d_args});
@@ -118,6 +128,11 @@ pub fn parse (allocator: std.mem.Allocator, args: []const []const u8) !Options
         {
             i += 1;
             try options.outputs.append (allocator, try allocator.dupe (u8, args[i]));
+        }
+        else if (std.mem.eql (u8, args[i], "-l"))
+        {
+            i += 1;
+            options.log_filename = try allocator.dupe (u8, args[i]);
         }
         else if (std.mem.eql (u8, args[i], "-Dargs"))
         {
@@ -336,6 +351,26 @@ test "command_line_parser: output files"
         \\  .inputs[0]="one.lipu",
         \\  .outputs[0]="one.pdf",
         \\  .outputs[1]="one.html",
+        \\  .d_args=false,
+        \\  .d_tokens=false,
+        \\  .d_ast=false,
+        \\  .d_parsing=false,
+        \\}
+        ;
+
+    try std.testing.expectFmt (expected, "{n}", .{options});
+}
+
+test "command_line_parser: log_filename"
+{
+    var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-l", "test.log"});
+    defer options.deinit ();
+
+    const expected =
+        \\Options{
+        \\  .verbosity=0,
+        \\  .quiet=false,
+        \\  .log_filename="test.log",
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
