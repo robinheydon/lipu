@@ -14,11 +14,17 @@ fp.close ()
 data = json.loads (content)
 files = data['files']
 files = sorted (files, key = lambda x: x['file'])
-print ("-"*79)
+
+output = []
+output.append ("-"*79)
 for f in files:
     filename = pathlib.Path (f['file'])
     local = filename.relative_to (absolute_dot)
-    print (f"{str(local):<57} {f['percent_covered']}% ({f['covered_lines']}/{f['total_lines']})")
-print ("="*79)
-print (f"{'Total:':<57} {data['percent_covered']}% ({data['covered_lines']}/{data['total_lines']})")
-print ("-"*79)
+    output.append (f"{str(local):<57} {f['percent_covered']}% ({f['covered_lines']}/{f['total_lines']})")
+output.append ("="*79)
+output.append (f"{'Total:':<57} {data['percent_covered']}% ({data['covered_lines']}/{data['total_lines']})")
+output.append ("-"*79)
+
+fp = open (sys.argv[2], "w")
+fp.write ('\n'.join (output))
+fp.close ()

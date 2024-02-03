@@ -14,14 +14,14 @@ run : zig-out/bin/lipu test.lipu
 	./zig-out/bin/lipu $(ARGS)
 
 zig-out/bin/lipu : $(SRCS)
-	zig build --summary all --color on
+	zig build --summary all --color on -freference-trace=32
 
 test :
 	zig build test --summary all --color on
 
 coverage :
 	rm -rf kcov-out
-	zig build coverage
+	zig build coverage --summary all --color on
 
 clean :
 	rm -rf kcov-out

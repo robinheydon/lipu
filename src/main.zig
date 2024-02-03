@@ -35,11 +35,17 @@ pub fn main() !void {
     log.info("lipu", .{});
     log.info("version: {}", .{lipu.version});
 
-    var ast = try lipu.parse (allocator, .{
+    var doc = lipu.init (.{
+        .allocator = allocator,
         .debug_tokens = options.d_tokens,
-        .filename = options.inputs.items[0],
     });
-    defer ast.deinit ();
+    defer doc.deinit ();
+
+    try doc.import (options.inputs.items[0]);
+
+    const dump = try doc.dump (allocator);
+    defer allocator.free (dump);
+    log.info ("{s}", .{dump});
 }
 
 test "main test" {

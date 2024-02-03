@@ -63,6 +63,7 @@ pub fn build(b: *std.Build) void {
         "kcov-out/main",
         "--exclude-path=/snap/zig",
     });
+    _ = kcov_exe_unit_tests.captureStdErr ();
     kcov_exe_unit_tests.addArtifactArg (exe_unit_tests);
 
     const kcov_lipu_unit_tests = b.addSystemCommand (&.{
@@ -71,6 +72,7 @@ pub fn build(b: *std.Build) void {
         "kcov-out/lipu",
         "--exclude-path=/snap/zig",
     });
+    _ = kcov_lipu_unit_tests.captureStdErr ();
     kcov_lipu_unit_tests.addArtifactArg (lipu_unit_tests);
 
     const merge_coverage_results = b.addSystemCommand (&.{
@@ -83,14 +85,31 @@ pub fn build(b: *std.Build) void {
     merge_coverage_results.step.dependOn (&kcov_exe_unit_tests.step);
     merge_coverage_results.step.dependOn (&kcov_lipu_unit_tests.step);
 
-
-    const process_coverage_results = b.addSystemCommand (&.{
+    const summary_results = b.addSystemCommand (&.{
         "python3",
         "tools/coverage.py",
         "kcov-out/coverage/kcov-merged",
     });
-    process_coverage_results.step.dependOn (&merge_coverage_results.step);
+    const summary_stdout = summary_results.addOutputFileArg ("results.txt");
+    summary_results.step.dependOn (&merge_coverage_results.step);
+
+    _ = summary_stdout;
+    var show_coverage_results = std.Build.Step.init(.{
+        .id = .run,
+        .name = "show coverage summary",
+        .owner = b,
+        .makeFn = show_coverage_summary,
+    });
+    show_coverage_results.dependOn (&summary_results.step);
 
     const coverage_step = b.step ("coverage", "Run coverage unit tests");
-    coverage_step.dependOn (&process_coverage_results.step);
+    coverage_step.dependOn (&show_coverage_results);
+}
+
+fn show_coverage_summary (b: *std.Build.Step, progress: *std.Progress.Node) !void
+{
+    _ = b;
+    _ = progress;
+
+    std.debug.print ("Show Coverage Summary\n", .{});
 }

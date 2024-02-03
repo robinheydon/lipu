@@ -23,54 +23,77 @@ pub const version = std.SemanticVersion {.major = 0, .minor = 0, .patch = 0};
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-pub const Ast = struct
+const LipuOptions = struct
 {
-    allocator: std.mem.Allocator,
-    content: []const u8,
-    filename: []const u8,
-
-    //////////////////////////////////////////////////////////////////////////////////////////
-
-    pub fn deinit (self: *Ast) void
-    {
-        self.allocator.free (self.content);
-    }
-};
-
-///////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////
-
-pub const ParseOptions = struct
-{
+    allocator : std.mem.Allocator,
     debug_tokens : bool = false,
-    filename : []const u8,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-pub fn parse (allocator: std.mem.Allocator, options: ParseOptions) !Ast
+const Lipu = struct
 {
-    const cwd = std.fs.cwd ();
-    const content = try cwd.readFileAlloc (allocator, options.filename, std.math.maxInt (token.TokenIndex));
+    allocator : std.mem.Allocator,
+    debug_tokens : bool = false,
+    files : std.StringArrayHashMap ([]const u8),
 
-    var iter = token.tokenize (content);
-    if (options.debug_tokens)
+    pub fn import (self: *Lipu, filename: []const u8) !void
     {
-        const output = try iter.dump (allocator);
-        defer allocator.free (output);
-        log.debug ("tokens", "{s}", .{output});
+        const cwd = std.fs.cwd ();
+        const content = try cwd.readFileAlloc (self.allocator, filename, std.math.maxInt (token.TokenIndex));
+
+        var iter = token.tokenize (content);
+        if (self.debug_tokens)
+        {
+            const output = try iter.dump (self.allocator);
+            defer self.allocator.free (output);
+            log.debug ("tokens", "{s}", .{output});
+        }
+
+        try self.files.put (try self.allocator.dupe (u8, filename), content);
     }
 
-    const ast = Ast {
-        .allocator = allocator,
-        .content = content,
-        .filename = options.filename,
-    };
+    pub fn dump (self: Lipu, alloc: std.mem.Allocator) ![]const u8
+    {
+        var buffer = std.ArrayList (u8).init (alloc);
+        var writer = buffer.writer ();
+        try writer.writeAll ("Document:");
+        var iter = self.files.iterator ();
+        while (iter.next ()) |kv|
+        {
+            const filename = kv.key_ptr.*;
+            try writer.print ("\n  {s}", .{filename});
+        }
+        return buffer.toOwnedSlice ();
+    }
 
-    return ast;
+    pub fn deinit (self: *Lipu) void
+    {
+        var iter = self.files.iterator ();
+        while (iter.next ()) |kv|
+        {
+            const filename = kv.key_ptr.*;
+            const content = kv.value_ptr.*;
+            self.allocator.free (filename);
+            self.allocator.free (content);
+        }
+        self.files.deinit ();
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub fn init (options: LipuOptions) Lipu
+{
+    return .{
+        .allocator = options.allocator,
+        .debug_tokens = options.debug_tokens,
+        .files = std.StringArrayHashMap ([]const u8).init (options.allocator),
+    };
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////

@@ -150,7 +150,7 @@ pub fn parseArgs (allocator: std.mem.Allocator) !Options
     return parse (allocator, args);
 }
 
-test "null options"
+test "command_line_parser: options"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", });
     defer options.deinit ();
@@ -168,7 +168,7 @@ test "null options"
     try std.testing.expectFmt (expected, "{n}", .{options});
 }
 
-test "null options inline"
+test "command_line_parser: null options inline"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", });
     defer options.deinit ();
@@ -180,7 +180,7 @@ test "null options inline"
     try std.testing.expectFmt (expected, "{}", .{options});
 }
 
-test "-v"
+test "command_line_parser: -v"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-v"});
     defer options.deinit ();
@@ -198,7 +198,7 @@ test "-v"
     try std.testing.expectFmt (expected, "{n}", .{options});
 }
 
-test "-vv"
+test "command_line_parser: -vv"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-vv"});
     defer options.deinit ();
@@ -216,7 +216,7 @@ test "-vv"
     try std.testing.expectFmt (expected, "{n}", .{options});
 }
 
-test "-vvv"
+test "command_line_parser: -vvv"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-vvv"});
     defer options.deinit ();
@@ -234,7 +234,7 @@ test "-vvv"
     try std.testing.expectFmt (expected, "{n}", .{options});
 }
 
-test "-q"
+test "command_line_parser: -q"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-q"});
     defer options.deinit ();
@@ -252,7 +252,7 @@ test "-q"
     try std.testing.expectFmt (expected, "{n}", .{options});
 }
 
-test "--quiet"
+test "command_line_parser: --quiet"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "--quiet"});
     defer options.deinit ();
@@ -270,7 +270,7 @@ test "--quiet"
     try std.testing.expectFmt (expected, "{n}", .{options});
 }
 
-test "-unknown-flag"
+test "command_line_parser: -unknown-flag"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-unknown-flag"});
     defer options.deinit ();
@@ -289,7 +289,7 @@ test "-unknown-flag"
     try std.testing.expectFmt (expected, "{n}", .{options});
 }
 
-test "input files"
+test "command_line_parser: input files"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "one.lipu", "two.lipu"});
     defer options.deinit ();
@@ -309,7 +309,7 @@ test "input files"
     try std.testing.expectFmt (expected, "{n}", .{options});
 }
 
-test "output files"
+test "command_line_parser: output files"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-o", "one.pdf", "one.lipu", "-o", "one.html"});
     defer options.deinit ();
@@ -330,7 +330,7 @@ test "output files"
     try std.testing.expectFmt (expected, "{n}", .{options});
 }
 
-test "debug args"
+test "command_line_parser: debug args"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-Dargs"});
     defer options.deinit ();
@@ -348,7 +348,7 @@ test "debug args"
     try std.testing.expectFmt (expected, "{n}", .{options});
 }
 
-test "debug tokens"
+test "command_line_parser: debug tokens"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-Dtokens"});
     defer options.deinit ();
@@ -366,7 +366,7 @@ test "debug tokens"
     try std.testing.expectFmt (expected, "{n}", .{options});
 }
 
-test "debug ast"
+test "command_line_parser: debug ast"
 {
     var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-Dast"});
     defer options.deinit ();
