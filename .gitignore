@@ -2,3 +2,6 @@ kcov-out
 zig-out
 zig-cache
 *.swp
+test.log
+test.html
+test.pdf
