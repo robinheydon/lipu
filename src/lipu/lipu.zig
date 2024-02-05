@@ -10,6 +10,12 @@ const testing = std.testing;
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 const token = @import ("token.zig");
+const TokenIndex = token.TokenIndex;
+
+const tree = @import ("tree.zig");
+const Tree = tree.Tree;
+
+const parse = @import ("parse.zig");
 
 pub const log = @import ("log.zig");
 
@@ -33,16 +39,28 @@ const LipuOptions = struct
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-const Lipu = struct
+pub const FileIndex = u32;
+
+pub const Lipu = struct
 {
     allocator : std.mem.Allocator,
     debug_tokens : bool = false,
-    files : std.StringArrayHashMap ([]const u8),
+    files : std.ArrayList ([]const u8),
+    filenames : std.StringHashMap (FileIndex),
+    tree : Tree,
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
 
     pub fn import (self: *Lipu, filename: []const u8) !void
     {
         const cwd = std.fs.cwd ();
         const content = try cwd.readFileAlloc (self.allocator, filename, std.math.maxInt (token.TokenIndex));
+
+        const file : FileIndex = @intCast (self.files.items.len);
+        const filename_copy = try self.allocator.dupe (u8, filename);
+        try self.files.append (content);
+        try self.filenames.put (filename_copy, file);
+        std.debug.print ("file = {}\n", .{file});
 
         var iter = token.tokenize (content);
         if (self.debug_tokens)
@@ -52,48 +70,90 @@ const Lipu = struct
             log.debug ("tokens", "{s}", .{output});
         }
 
-        try self.files.put (try self.allocator.dupe (u8, filename), content);
+        try parse.parse (self, &iter, file);
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
 
     pub fn dump (self: Lipu, alloc: std.mem.Allocator) ![]const u8
     {
         var buffer = std.ArrayList (u8).init (alloc);
         var writer = buffer.writer ();
         try writer.writeAll ("Document:");
-        var iter = self.files.iterator ();
+        var iter = self.filenames.iterator ();
         while (iter.next ()) |kv|
         {
             const filename = kv.key_ptr.*;
-            try writer.print ("\n  {s}", .{filename});
+            const index = kv.value_ptr.*;
+            try writer.print ("\n  {}: {s}", .{index, filename});
         }
+        try self.tree.dump (writer);
         return buffer.toOwnedSlice ();
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
     pub fn deinit (self: *Lipu) void
     {
-        var iter = self.files.iterator ();
+        for (self.files.items) |item|
+        {
+            self.allocator.free (item);
+        }
+        self.files.deinit ();
+
+        var iter = self.filenames.iterator ();
         while (iter.next ()) |kv|
         {
             const filename = kv.key_ptr.*;
-            const content = kv.value_ptr.*;
             self.allocator.free (filename);
-            self.allocator.free (content);
         }
-        self.files.deinit ();
+        self.filenames.deinit ();
+
+        self.tree.deinit ();
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    pub fn getSlice (self: Lipu, file: FileIndex, index: TokenIndex) []const u8
+    {
+        if (file >= self.files.items.len)
+        {
+            return "";
+        }
+
+        const content = self.files.items[file];
+        var iter = token.TokenIter {
+            .content = content,
+            .index = index,
+        };
+        if (iter.next ()) |tk|
+        {
+            return tk.slice;
+        }
+        return "";
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-pub fn init (options: LipuOptions) Lipu
+pub fn init (options: LipuOptions) !*Lipu
 {
-    return .{
+    const self = try options.allocator.create (Lipu);
+
+    self.* = .{
         .allocator = options.allocator,
         .debug_tokens = options.debug_tokens,
-        .files = std.StringArrayHashMap ([]const u8).init (options.allocator),
+        .files = std.ArrayList ([]const u8).init (options.allocator),
+        .filenames = std.StringHashMap (FileIndex).init (options.allocator),
+        .tree = Tree.init (options.allocator, self),
     };
+
+    return self;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////

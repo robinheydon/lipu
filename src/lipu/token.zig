@@ -129,7 +129,17 @@ pub const TokenIter = struct
 
         const kind : TokenKind = switch (ch)
         {
-            ' ', '\t' => .space,
+            ' ', '\t' => blk: {
+                while (self.index < self.content.len) : (self.index += 1)
+                {
+                    switch (self.content[self.index])
+                    {
+                        ' ', '\t' => {},
+                        else => break
+                    }
+                }
+                break :blk .space;
+            },
 
             '\n' => .end_of_line,
 
@@ -740,6 +750,29 @@ test "token: reserved words"
         \\  or "or"
         \\  space " "
         \\  not "not"
+    ;
+
+    try std.testing.expectFmt (expected, "{s}", .{output});
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+test "token: combined spaces"
+{
+    const input = "one  two  \t three";
+    var iter = tokenize (input);
+    const output = try iter.dump (std.testing.allocator);
+    defer std.testing.allocator.free (output);
+
+    const expected =
+        \\Tokens:
+        \\  letter "one"
+        \\  space "  "
+        \\  letter "two"
+        \\  space "  \t "
+        \\  letter "three"
     ;
 
     try std.testing.expectFmt (expected, "{s}", .{output});

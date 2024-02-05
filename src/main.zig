@@ -38,20 +38,39 @@ pub fn main() !void {
 
     log.info("lipu v{}", .{lipu.version});
 
-    var doc = lipu.init (.{
+    var doc = try lipu.init (.{
         .allocator = allocator,
         .debug_tokens = options.d_tokens,
     });
+    defer allocator.destroy (doc);
     defer doc.deinit ();
 
-    if (options.inputs.items.len > 0)
+    if (options.inputs.items.len == 0)
     {
-        try doc.import (options.inputs.items[0]);
-
-        const dump = try doc.dump (allocator);
-        defer allocator.free (dump);
-        log.info ("{s}", .{dump});
+        log.err ("No input file\n", .{});
+        return;
     }
+    else if (options.inputs.items.len > 1)
+    {
+        log.err ("Too many input files\n", .{});
+        return;
+    }
+
+    doc.import (options.inputs.items[0]) catch |err|
+    {
+        switch (err)
+        {
+            error.FileNotFound => {
+                log.err ("File \"{}\" not found", .{ std.zig.fmtEscapes (options.inputs.items[0]) });
+                return;
+            },
+            else => return err
+        }
+    };
+
+    const dump = try doc.dump (allocator);
+    defer allocator.free (dump);
+    log.info ("{s}", .{dump});
 }
 
 test "main test" {
