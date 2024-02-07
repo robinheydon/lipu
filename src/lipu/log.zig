@@ -87,8 +87,8 @@ pub fn endTest () []const u8
 
 pub fn output (level: i8, comptime label: []const u8, comptime format: []const u8, args: anytype) void
 {
-    const use_stdout = (level <= log_verbosity and !log_quiet) or (log_quiet and level < 0);
-    const use_file = log_filename != null and level <= log_verbosity;
+    const use_stdout = ((level <= log_verbosity and !log_quiet) or (log_quiet and level < 0)) and !log_testing;
+    const use_file = (log_filename != null and level <= log_verbosity) and !log_testing;
 
     if (use_stdout == false and use_file == false and log_testing == false)
     {

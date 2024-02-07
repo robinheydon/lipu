@@ -20,6 +20,8 @@ const NodeIndex = tree.NodeIndex;
 const token = @import ("token.zig");
 const TokenIter = token.TokenIter;
 
+const testing = @import ("testing.zig");
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -74,43 +76,9 @@ pub fn parse_block (self: *Lipu, parent: NodeIndex, iter: *TokenIter, file: File
             }
         }
     }
-    const parent_token = self.tree.nodes.items[parent];
-    log.err ("Found '{{' without matching '}}'\n  {}", .{parent_token.index});
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////
-
-pub fn test_parse (input_text: []const u8, expected: []const u8) !void
-{
-    var doc = try lipu.init (.{
-        .allocator = std.testing.allocator,
-    });
-    defer std.testing.allocator.destroy (doc);
-    defer doc.deinit ();
-
-    try log.init (.{
-        .allocator = std.testing.allocator,
-    });
-    defer log.deinit ();
-
-    log.startTest ();
-
-    const content = try std.testing.allocator.dupe (u8, input_text);
-
-    try doc.include (content, "test.lipu");
-
-    const dump = try doc.dump (std.testing.allocator);
-    defer std.testing.allocator.free (dump);
-    log.info ("{s}", .{dump});
-
-    const output = log.endTest ();
-
-    const trimmed_expected = std.mem.trim (u8, expected, "\r\n \t");
-    const trimmed_output = std.mem.trim (u8, output, "\r\n \t");
-
-    try std.testing.expectFmt (trimmed_expected, "{s}", .{trimmed_output});
+    const item = self.tree.nodes.items[parent];
+    const slice = self.getSlice (item.file, item.index);
+    log.err ("Found '{{' without matching '}}'\n  {s} \"{}\"", .{@tagName (item.kind), std.zig.fmtEscapes (slice),});
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -131,7 +99,104 @@ test "parse: hello"
         \\        :     end_of_line
         ;
 
-    try test_parse (content, expected);
+    try testing.test_parse (content, expected);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+test "parse: blocks"
+{
+    const content = "1{2,3}4";
+
+    const expected =
+        \\info    : Tree
+        \\        :   document
+        \\        :     digit "1"
+        \\        :     open_block "{"
+        \\        :       digit "2"
+        \\        :       comma ","
+        \\        :       digit "3"
+        \\        :       close_block "}"
+        \\        :     digit "4"
+        ;
+
+    try testing.test_parse (content, expected);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+test "parse: nested blocks"
+{
+    const content = "1{2{3,4}5{6,7}8}9";
+
+    const expected =
+        \\info    : Tree
+        \\        :   document
+        \\        :     digit "1"
+        \\        :     open_block "{"
+        \\        :       digit "2"
+        \\        :       open_block "{"
+        \\        :         digit "3"
+        \\        :         comma ","
+        \\        :         digit "4"
+        \\        :         close_block "}"
+        \\        :       digit "5"
+        \\        :       open_block "{"
+        \\        :         digit "6"
+        \\        :         comma ","
+        \\        :         digit "7"
+        \\        :         close_block "}"
+        \\        :       digit "8"
+        \\        :       close_block "}"
+        \\        :     digit "9"
+        ;
+
+    try testing.test_parse (content, expected);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+test "parse: missing open block"
+{
+    const content = "1}";
+
+    const expected =
+        \\ERROR   : Found '}' without matching '{'
+        \\        :   close_block "}"
+        \\info    : Tree
+        \\        :   document
+        \\        :     digit "1"
+        \\        :     close_block "}"
+        ;
+
+    try testing.test_parse (content, expected);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+test "parse: missing close block"
+{
+    const content = "1{2";
+
+    const expected =
+        \\ERROR   : Found '{' without matching '}'
+        \\        :   open_block "{"
+        \\info    : Tree
+        \\        :   document
+        \\        :     digit "1"
+        \\        :     open_block "{"
+        \\        :       digit "2"
+        ;
+
+    try testing.test_parse (content, expected);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
