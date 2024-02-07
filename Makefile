@@ -6,8 +6,8 @@ ARGS += -vvv
 ARGS += -q
 ARGS += test.lipu
 ARGS += -o test.ast
-ARGS += -Dargs
-ARGS += -Dtokens
+# ARGS += -Dargs
+# ARGS += -Dtokens
 ARGS += -Dparsing
 ARGS += -l test.log
 
@@ -16,7 +16,7 @@ all : coverage
 run : test.log
 	@cat test.log
 
-test.log : zig-out/bin/lipu test.lipu
+test.log : zig-out/bin/lipu test.lipu Makefile
 	@./zig-out/bin/lipu $(ARGS)
 
 zig-out/bin/lipu : $(SRCS)
@@ -26,7 +26,7 @@ test :
 	@zig build test --summary all --color on
 
 coverage :
-	@zig build coverage --summary none --color on
+	@zig build coverage --summary all --color on
 	@python3 tools/coverage.py kcov-out/coverage/kcov-merged
 
 clean :

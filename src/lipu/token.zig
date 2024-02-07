@@ -25,6 +25,7 @@ pub const TokenKind = enum
     command,
     comment,
     digit,
+    document,
     dollar,
     dot,
     double_quote,

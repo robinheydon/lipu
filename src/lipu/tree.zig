@@ -4,6 +4,8 @@
 
 const std = @import ("std");
 
+const log = @import ("log.zig");
+
 const token = @import ("token.zig");
 const TokenKind = token.TokenKind;
 const TokenIndex = token.TokenIndex;
@@ -16,7 +18,9 @@ const FileIndex = lipu.FileIndex;
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-const NodeIndex = u32;
+const lots_of_spaces = " "**128;
+
+pub const NodeIndex = u32;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,11 +28,12 @@ const NodeIndex = u32;
 
 pub const Node = struct
 {
-    kind: TokenKind,
-    file: FileIndex,
-    index: TokenIndex = 0,
-    child: NodeIndex = 0,
-    next: NodeIndex = 0,
+    kind: TokenKind, // kind of token
+    file: FileIndex, // which file
+    index: TokenIndex = 0, // index into file content
+    first_child: NodeIndex = 0, // first child
+    last_child: NodeIndex = 0, // last child
+    next_sibling: NodeIndex = 0, // next sibling
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -59,13 +64,33 @@ pub const Tree = struct
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
-    pub fn append (self: *Tree, kind: TokenKind, index: TokenIndex, file: FileIndex) !void
+    pub fn append (self: *Tree, parent: ?NodeIndex, kind: TokenKind, index: TokenIndex, file: FileIndex) !NodeIndex
     {
+        const new_index : NodeIndex = @truncate (self.nodes.items.len);
+
         try self.nodes.append (.{
             .kind = kind,
             .file = file,
             .index = index,
         });
+
+        if (parent) |parent_index|
+        {
+            var parent_node = &self.nodes.items[parent_index];
+            if (parent_node.first_child == 0)
+            {
+                parent_node.first_child = new_index;
+                parent_node.last_child = new_index;
+            }
+            else
+            {
+                var last_child = &self.nodes.items[parent_node.last_child];
+                last_child.next_sibling = new_index;
+                parent_node.last_child = new_index;
+            }
+        }
+
+        return new_index;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -74,10 +99,47 @@ pub const Tree = struct
     {
         try writer.writeAll ("\nTree");
 
-        for (0.., self.nodes.items) |index, item|
+        try self.dump_node (0, 1, writer);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    pub fn dump_node (self: Tree, index: NodeIndex, depth: usize, writer: anytype) !void
+    {
+        var i = index;
+        while (true)
         {
-            const slice = self.lipu.getSlice (item.file, item.index);
-            try writer.print ("\n  {} {s} \"{}\" ({},{})", .{index, @tagName (item.kind), std.zig.fmtEscapes (slice), item.child, item.next});
+            const item = self.nodes.items[i];
+
+            switch (item.kind)
+            {
+                .document, .end_of_line => {
+                    try writer.print ("\n{s}{s}", .{
+                        lots_of_spaces[0..depth*2],
+                        @tagName (item.kind)
+                    });
+                },
+                else => {
+                    const slice = self.lipu.getSlice (item.file, item.index);
+                    try writer.print ("\n{s}{s} \"{}\"", .{
+                        lots_of_spaces[0..depth*2],
+                        @tagName (item.kind),
+                        std.zig.fmtEscapes (slice)
+                    });
+                }
+            }
+
+
+            if (item.first_child != 0)
+            {
+                try self.dump_node (item.first_child, depth+1, writer);
+            }
+            if (item.next_sibling == 0)
+            {
+                break;
+            }
+
+            i = item.next_sibling;
         }
     }
 
