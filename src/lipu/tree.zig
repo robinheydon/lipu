@@ -97,7 +97,7 @@ pub const Tree = struct
 
     pub fn dump (self: Tree, writer: anytype) !void
     {
-        try writer.writeAll ("\nTree");
+        try writer.writeAll ("Tree");
 
         try self.dump_node (0, 1, writer);
     }

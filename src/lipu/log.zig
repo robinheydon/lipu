@@ -13,6 +13,8 @@ var log_verbosity : u8 = 0;
 var log_quiet : bool = false;
 var log_filename : ?[]const u8 = null;
 var log_file : ?std.fs.File = null;
+var log_testing : bool = false;
+var log_test_output : std.ArrayList(u8) = undefined;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,7 +45,13 @@ pub fn init (options: LogOptions) !void
 
         std.debug.print ("{?s}\n", .{log_filename});
     }
+    log_testing = false;
+    log_test_output = std.ArrayList (u8).init (log_allocator);
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
 
 pub fn deinit () void
 {
@@ -51,6 +59,26 @@ pub fn deinit () void
     {
         file.close ();
     }
+    log_testing = false;
+    log_test_output.deinit ();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub fn startTest () void
+{
+    log_testing = true;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub fn endTest () []const u8
+{
+    return log_test_output.items;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,7 +90,7 @@ pub fn output (level: i8, comptime label: []const u8, comptime format: []const u
     const use_stdout = (level <= log_verbosity and !log_quiet) or (log_quiet and level < 0);
     const use_file = log_filename != null and level <= log_verbosity;
 
-    if (use_stdout == false and use_file == false)
+    if (use_stdout == false and use_file == false and log_testing == false)
     {
         return;
     }
@@ -106,6 +134,19 @@ pub fn output (level: i8, comptime label: []const u8, comptime format: []const u
                 {
                     file_writer.print ("{s:<8}: {s}\n", .{ "", line }) catch {};
                 }
+            }
+        }
+
+        if (log_testing)
+        {
+            var test_writer = log_test_output.writer ();
+            if (count == 0)
+            {
+                test_writer.print ("{s:<8}: {s}\n", .{ label, line }) catch {};
+            }
+            else
+            {
+                test_writer.print ("{s:<8}: {s}\n", .{ "", line }) catch {};
             }
         }
     }

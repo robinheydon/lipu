@@ -60,7 +60,26 @@ pub const Lipu = struct
         const filename_copy = try self.allocator.dupe (u8, filename);
         try self.files.append (content);
         try self.filenames.put (filename_copy, file);
-        std.debug.print ("file = {}\n", .{file});
+
+        var iter = token.tokenize (content);
+        if (self.debug_tokens)
+        {
+            const output = try iter.dump (self.allocator);
+            defer self.allocator.free (output);
+            log.debug ("tokens", "{s}", .{output});
+        }
+
+        try parse.parse (self, &iter, file);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    pub fn include (self: *Lipu, content: []const u8, filename: []const u8) !void
+    {
+        const file : FileIndex = @intCast (self.files.items.len);
+        const filename_copy = try self.allocator.dupe (u8, filename);
+        try self.files.append (content);
+        try self.filenames.put (filename_copy, file);
 
         var iter = token.tokenize (content);
         if (self.debug_tokens)
@@ -78,15 +97,15 @@ pub const Lipu = struct
     pub fn dump (self: Lipu, alloc: std.mem.Allocator) ![]const u8
     {
         var buffer = std.ArrayList (u8).init (alloc);
-        var writer = buffer.writer ();
-        try writer.writeAll ("Document:");
-        var iter = self.filenames.iterator ();
-        while (iter.next ()) |kv|
-        {
-            const filename = kv.key_ptr.*;
-            const index = kv.value_ptr.*;
-            try writer.print ("\n  {}: {s}", .{index, filename});
-        }
+        const writer = buffer.writer ();
+        // try writer.writeAll ("Document:");
+        // var iter = self.filenames.iterator ();
+        // while (iter.next ()) |kv|
+        // {
+            // const filename = kv.key_ptr.*;
+            // const index = kv.value_ptr.*;
+            // try writer.print ("\n  {}: {s}", .{index, filename});
+        // }
         try self.tree.dump (writer);
         return buffer.toOwnedSlice ();
     }
@@ -170,6 +189,7 @@ test "check version" {
 
 test "tokens" {
     _ = @import ("token.zig");
+    _ = @import ("parse.zig");
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
