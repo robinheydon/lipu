@@ -190,6 +190,7 @@ test "check version" {
 test "tokens" {
     _ = @import ("token.zig");
     _ = @import ("parse.zig");
+    _ = @import ("testing.zig");
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
