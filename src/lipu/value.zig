@@ -12,6 +12,10 @@ const string_zig = @import ("string.zig");
 const String = string_zig.String;
 const intern = string_zig.intern;
 
+const lipu_zig = @import ("lipu.zig");
+const Command = lipu_zig.Command;
+const Lipu = lipu_zig.Lipu;
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -22,6 +26,7 @@ pub const Value = union (enum)
     _i: i64,
     _n: f64,
     _s: String,
+    _c: Command,
 
     pub fn boolean (b: bool) Value
     {
@@ -41,6 +46,11 @@ pub const Value = union (enum)
     pub fn string (s: String) Value
     {
         return .{ ._s = s };
+    }
+
+    pub fn command (c: Command) Value
+    {
+        return .{ ._c = c };
     }
 
     pub fn add (lhs: Value, rhs: Value) !Value
@@ -138,6 +148,10 @@ pub const Value = union (enum)
             ._s => |s|
             {
                 try writer.print ("{" ++ fmt ++ "}", .{s});
+            },
+            ._c =>
+            {
+                try writer.writeAll ("__built_in_command__");
             }
         }
     }
@@ -177,6 +191,13 @@ test "value: init"
     const v8 = Value.string (try intern ("Hello"));
     try std.testing.expectFmt ("Hello", "{}", .{ v8 });
     try std.testing.expectFmt ("'Hello'", "{'}", .{ v8 });
+
+    const v9 = Value.command (test_command);
+    try std.testing.expectFmt ("__built_in_command__", "{}", .{ v9 });
+}
+
+fn test_command (_: *Lipu) void
+{
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////

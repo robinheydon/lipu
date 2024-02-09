@@ -89,11 +89,10 @@ fn compare_text (expected: []const u8, output: []const u8, writer: anytype) !voi
 
 pub fn test_parse (input_text: []const u8, expected: []const u8) !void
 {
-    var doc = try lipu_zig.init (.{
+    var doc = try lipu_zig.create (.{
         .allocator = std.testing.allocator,
     });
-    defer std.testing.allocator.destroy (doc);
-    defer doc.deinit ();
+    defer doc.destroy ();
 
     try log.init (.{
         .allocator = std.testing.allocator,
@@ -104,11 +103,14 @@ pub fn test_parse (input_text: []const u8, expected: []const u8) !void
 
     const content = try std.testing.allocator.dupe (u8, input_text);
 
-    try doc.include (content, "test.lipu");
+    var tree = try doc.include (content, "test.lipu");
+    defer tree.deinit ();
 
-    const dump = try doc.dump (std.testing.allocator);
-    defer std.testing.allocator.free (dump);
-    log.info ("{s}", .{dump});
+    var buffer = std.ArrayList (u8).init (std.testing.allocator);
+    defer buffer.deinit ();
+    const writer = buffer.writer ();
+    try tree.dump (writer);
+    log.info ("{s}", .{buffer.items});
 
     const output = log.endTest ();
 

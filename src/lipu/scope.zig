@@ -12,22 +12,56 @@ const lipu_zig = @import ("lipu.zig");
 const Lipu = lipu_zig.Lipu;
 
 const value_zig = @import ("value.zig");
+const Value = value_zig.Value;
+
+const string_zig = @import ("string.zig");
+const String = string_zig.String;
+const intern = string_zig.intern;
+const string_lt = string_zig.string_lt;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-pub const Scope = struct
+pub const ScopeIndex = usize;
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub const Scopes = struct
 {
-    allocator: std.mem.Allocator,
-    parent: ?*Scope = null,
-    label: String,
-    table: std.AutoHashMap (String, Value),
+    all_scopes: std.ArrayList (Scope),
 
-    pub fn destroy (self: *Scope) void
+    pub fn create (self: *Scopes, allocator: std.mem.Allocator, label: String, parent: ?ScopeIndex) !ScopeIndex
     {
-        self.table.deinit ();
-        self.allocator.free (self);
+        const index = @as (ScopeIndex, self.all_scopes.items.len);
+
+        const scope : Scope = .{
+            .parent = parent,
+            .label = label,
+            .table = std.AutoHashMap (String, Value).init (allocator),
+            .scopes = self,
+        };
+
+        try self.all_scopes.append (scope);
+
+        return index;
+    }
+
+    pub fn get (self: *Scopes, index: ScopeIndex) *Scope
+    {
+        return &self.all_scopes.items[index];
+    }
+
+    pub fn deinit (self: *Scopes) void
+    {
+        for (self.all_scopes.items) |*scope|
+        {
+            scope.deinit ();
+        }
+
+        self.all_scopes.deinit ();
     }
 };
 
@@ -35,17 +69,68 @@ pub const Scope = struct
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-pub fn create (allocator: std.mem.Allocator, label: String, parent: ?*Scope) !*Scope
+pub const Scope = struct
 {
-    var self = try allocator.create (Scope);
-    self.* = .{
-        .allocator = allocator,
-        .label = label,
-        .table = std.AutoHashMap (String, Value).init (allocator);
-        .parent = parent,
-    };
+    parent: ?ScopeIndex = null,
+    label: String,
+    table: std.AutoHashMap (String, Value),
+    scopes: *Scopes,
 
-    return self;
+    pub fn deinit (self: *Scope) void
+    {
+        self.table.deinit ();
+    }
+
+    pub fn set (self: *Scope, key: String, value: Value) !void
+    {
+        try self.table.put (key, value);
+    }
+
+    pub fn dump (self: Scope, allocator: std.mem.Allocator, writer: anytype) !void
+    {
+        var keys = std.ArrayList (String).init (allocator);
+        defer keys.deinit ();
+
+        try writer.print ("\n  Scope {\"}", .{self.label});
+        if (self.parent) |parent|
+        {
+            try writer.print (" : {}", .{parent});
+        }
+
+        var iter = self.table.keyIterator ();
+        while (iter.next ()) |key|
+        {
+            try keys.append (key.*);
+        }
+
+        std.sort.pdq (String, keys.items, {}, string_lt);
+
+        for (keys.items) |k|
+        {
+            if (self.table.get (k)) |value|
+            {
+                if (value == ._s)
+                {
+                    try writer.print ("\n    {} = {\"}", .{ k, value });
+                }
+                else
+                {
+                    try writer.print ("\n    {} = {}", .{ k, value });
+                }
+            }
+        }
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub fn init (allocator: std.mem.Allocator) Scopes
+{
+    return .{
+        .all_scopes = std.ArrayList (Scope).init (allocator),
+    };
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////

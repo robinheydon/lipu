@@ -38,12 +38,11 @@ pub fn main() !void {
 
     log.info("lipu v{}", .{lipu.version});
 
-    var doc = try lipu.init (.{
+    var doc = try lipu.create (.{
         .allocator = allocator,
         .debug_tokens = options.d_tokens,
     });
-    defer allocator.destroy (doc);
-    defer doc.deinit ();
+    defer doc.destroy ();
 
     if (options.inputs.items.len == 0)
     {
@@ -56,7 +55,7 @@ pub fn main() !void {
         return;
     }
 
-    doc.import (options.inputs.items[0]) catch |err|
+    var parse_tree = doc.import (options.inputs.items[0]) catch |err|
     {
         switch (err)
         {
@@ -67,10 +66,21 @@ pub fn main() !void {
             else => return err
         }
     };
+    defer parse_tree.deinit ();
 
-    const dump = try doc.dump (allocator);
-    defer allocator.free (dump);
-    log.info ("{s}", .{dump});
+    {
+        var buffer = std.ArrayList (u8).init (allocator);
+        defer buffer.deinit ();
+        const writer = buffer.writer ();
+        try parse_tree.dump (writer);
+        log.info ("{s}", .{buffer.items});
+    }
+
+    {
+        const dump = try doc.dump ();
+        defer allocator.free (dump);
+        log.info ("{s}", .{dump});
+    }
 }
 
 test "main test" {

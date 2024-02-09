@@ -43,7 +43,7 @@ pub const Node = struct
 pub const Tree = struct
 {
     nodes: std.ArrayList (Node),
-    lipu: *Lipu,
+    owner: *Lipu,
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -51,7 +51,7 @@ pub const Tree = struct
     {
         return .{
             .nodes = std.ArrayList (Node).init (allocator),
-            .lipu = owner,
+            .owner = owner,
         };
     }
 
@@ -97,31 +97,38 @@ pub const Tree = struct
 
     pub fn dump (self: Tree, writer: anytype) !void
     {
-        try writer.writeAll ("Tree");
-
-        try self.dump_node (0, 1, writer);
+        try self.dump_node (0, 0, false, writer);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
-    pub fn dump_node (self: Tree, index: NodeIndex, depth: usize, writer: anytype) !void
+    pub fn dump_node (self: Tree, index: NodeIndex, depth: usize, newline: bool, writer: anytype) !void
     {
+        var need_newline = newline;
         var i = index;
-        while (true)
+        while (i < self.nodes.items.len)
         {
             const item = self.nodes.items[i];
 
             switch (item.kind)
             {
                 .document, .end_of_line => {
-                    try writer.print ("\n{s}{s}", .{
+                    if (need_newline)
+                    {
+                        try writer.writeAll ("\n");
+                    }
+                    try writer.print ("{s}{s}", .{
                         lots_of_spaces[0..depth*2],
                         @tagName (item.kind)
                     });
                 },
                 else => {
-                    const slice = self.lipu.getSlice (item.file, item.index);
-                    try writer.print ("\n{s}{s} \"{}\"", .{
+                    if (need_newline)
+                    {
+                        try writer.writeAll ("\n");
+                    }
+                    const slice = self.owner.getSlice (item.file, item.index);
+                    try writer.print ("{s}{s} \"{}\"", .{
                         lots_of_spaces[0..depth*2],
                         @tagName (item.kind),
                         std.zig.fmtEscapes (slice)
@@ -132,7 +139,7 @@ pub const Tree = struct
 
             if (item.first_child != 0)
             {
-                try self.dump_node (item.first_child, depth+1, writer);
+                try self.dump_node (item.first_child, depth+1, true, writer);
             }
             if (item.next_sibling == 0)
             {
@@ -140,6 +147,7 @@ pub const Tree = struct
             }
 
             i = item.next_sibling;
+            need_newline = true;
         }
     }
 

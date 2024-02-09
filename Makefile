@@ -29,6 +29,9 @@ coverage :
 	@zig build coverage -j1 --summary all --color on -freference-trace=32
 	@python3 tools/coverage.py kcov-out/coverage/kcov-merged
 
+valgrind : zig-out/bin/lipu test.lipu Makefile
+	@valgrind --num-callers=32 --gen-suppressions=no --suppressions=lipu.sup --track-origins=yes zig-out/bin/lipu $(ARGS)
+
 clean :
 	@rm -rf kcov-out
 	@rm -rf zig-cache

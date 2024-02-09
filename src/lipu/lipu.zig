@@ -21,7 +21,16 @@ const parse_zig = @import ("parse.zig");
 const parse = parse_zig.parse;
 
 const string_zig = @import ("string.zig");
+const String = string_zig.String;
 const intern = string_zig.intern;
+
+const scope_zig = @import ("scope.zig");
+const Scope = scope_zig.Scope;
+const ScopeIndex = scope_zig.ScopeIndex;
+const Scopes = scope_zig.Scopes;
+
+const value_zig = @import ("value.zig");
+const Value = value_zig.Value;
 
 pub const log = @import ("log.zig");
 
@@ -53,11 +62,12 @@ pub const Lipu = struct
     debug_tokens : bool = false,
     files : std.ArrayList ([]const u8),
     filenames : std.StringHashMap (FileIndex),
-    tree : Tree,
+    scopes: Scopes,
+    global: ScopeIndex = undefined,
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
-    pub fn deinit (self: *Lipu) void
+    pub fn destroy (self: *Lipu) void
     {
         for (self.files.items) |item|
         {
@@ -73,14 +83,16 @@ pub const Lipu = struct
         }
         self.filenames.deinit ();
 
-        self.tree.deinit ();
+        self.scopes.deinit ();
+
+        self.allocator.destroy (self);
 
         string_zig.deinit ();
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
-    pub fn import (self: *Lipu, filename: []const u8) !void
+    pub fn import (self: *Lipu, filename: []const u8) !Tree
     {
         const cwd = std.fs.cwd ();
         const content = try cwd.readFileAlloc (self.allocator, filename, std.math.maxInt (TokenIndex));
@@ -98,12 +110,12 @@ pub const Lipu = struct
             log.debug ("tokens", "{s}", .{output});
         }
 
-        try parse_zig.parse (self, &iter, file);
+        return try parse (self, &iter, file);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
-    pub fn include (self: *Lipu, content: []const u8, filename: []const u8) !void
+    pub fn include (self: *Lipu, content: []const u8, filename: []const u8) !Tree
     {
         const file : FileIndex = @intCast (self.files.items.len);
         const filename_copy = try self.allocator.dupe (u8, filename);
@@ -118,24 +130,30 @@ pub const Lipu = struct
             log.debug ("tokens", "{s}", .{output});
         }
 
-        try parse (self, &iter, file);
+        return try parse (self, &iter, file);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
-    pub fn dump (self: Lipu, alloc: std.mem.Allocator) ![]const u8
+    pub fn dump (self: Lipu) ![]const u8
     {
-        var buffer = std.ArrayList (u8).init (alloc);
+        var buffer = std.ArrayList (u8).init (self.allocator);
         const writer = buffer.writer ();
-        // try writer.writeAll ("Document:");
-        // var iter = self.filenames.iterator ();
-        // while (iter.next ()) |kv|
-        // {
-            // const filename = kv.key_ptr.*;
-            // const index = kv.value_ptr.*;
-            // try writer.print ("\n  {}: {s}", .{index, filename});
-        // }
-        try self.tree.dump (writer);
+        try writer.writeAll ("Files:");
+        var iter = self.filenames.iterator ();
+        while (iter.next ()) |kv|
+        {
+            const filename = kv.key_ptr.*;
+            const index = kv.value_ptr.*;
+            try writer.print ("\n  {}: {s}", .{index, filename});
+        }
+
+        try writer.writeAll ("\nScopes:");
+        for (self.scopes.all_scopes.items) |scope|
+        {
+            try scope.dump (self.allocator, writer);
+        }
+
         return buffer.toOwnedSlice ();
     }
 
@@ -162,28 +180,68 @@ pub const Lipu = struct
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
+    pub fn createScope (self: *Lipu, label: String, parent: ?ScopeIndex) !ScopeIndex
+    {
+        return try self.scopes.init (label, parent);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-pub fn init (options: LipuOptions) !*Lipu
+pub fn new_page_command (lipu: *Lipu) void { _ = lipu; std.debug.print ("New Page Command\n", .{}); }
+pub fn new_paragraph_command (lipu: *Lipu) void { _ = lipu; std.debug.print ("New Paragraph Command\n", .{}); }
+pub fn bold_command (lipu: *Lipu) void { _ = lipu; std.debug.print ("Bold Command\n", .{}); }
+pub fn italic_command (lipu: *Lipu) void { _ = lipu; std.debug.print ("Italic Command\n", .{}); }
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub fn create (options: LipuOptions) !*Lipu
 {
     const self = try options.allocator.create (Lipu);
+    errdefer options.allocator.destroy (self);
+
+    try string_zig.init (options.allocator);
+    errdefer string_zig.deinit ();
+
+    var scopes = scope_zig.init (options.allocator);
+    errdefer scopes.deinit ();
+
+    const global = try scopes.create (options.allocator, try intern ("Global"), null);
+
+    var global_scope = scopes.get (global);
+    try global_scope.set (try intern ("version"), Value.string (try intern ("v0.0.1")));
+    try global_scope.set (try intern ("version_major"), Value.integer (0));
+    try global_scope.set (try intern ("version_minor"), Value.integer (0));
+    try global_scope.set (try intern ("version_patch"), Value.integer (1));
+    try global_scope.set (try intern ("\\NewPage"), Value.command (new_page_command));
+    try global_scope.set (try intern ("\\NewParagraph"), Value.command (new_paragraph_command));
+    try global_scope.set (try intern ("\\Bold"), Value.command (bold_command));
+    try global_scope.set (try intern ("\\Italic"), Value.command (italic_command));
 
     self.* = .{
         .allocator = options.allocator,
         .debug_tokens = options.debug_tokens,
         .files = std.ArrayList ([]const u8).init (options.allocator),
         .filenames = std.StringHashMap (FileIndex).init (options.allocator),
-        .tree = Tree.init (options.allocator, self),
+        .scopes = scopes,
+        .global = global,
     };
-
-    try string_zig.init (options.allocator);
 
     return self;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub const Command = *const fn (lipu: *Lipu) void;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
