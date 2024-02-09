@@ -9,7 +9,8 @@ const std = @import ("std");
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 const string_zig = @import ("string.zig");
-const StringIndex = string_zig.StringIndex;
+const String = string_zig.String;
+const intern = string_zig.intern;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -20,7 +21,7 @@ pub const Value = union (enum)
     _b: bool,
     _i: i64,
     _n: f64,
-    _s: StringIndex,
+    _s: String,
 
     pub fn boolean (b: bool) Value
     {
@@ -37,7 +38,7 @@ pub const Value = union (enum)
         return .{ ._n = n };
     }
 
-    pub fn string (s: StringIndex) Value
+    pub fn string (s: String) Value
     {
         return .{ ._s = s };
     }
@@ -114,7 +115,7 @@ pub const Value = union (enum)
         }
     }
 
-    pub fn format (self: Value, _:anytype, _:anytype, writer: anytype) !void
+    pub fn format (self: Value, comptime fmt:anytype, _:anytype, writer: anytype) !void
     {
         switch (self)
         {
@@ -136,7 +137,7 @@ pub const Value = union (enum)
             },
             ._s => |s|
             {
-                try writer.print ("{}:{}", .{s.index, s.len});
+                try writer.print ("{" ++ fmt ++ "}", .{s});
             }
         }
     }
@@ -148,8 +149,8 @@ pub const Value = union (enum)
 
 test "value: init"
 {
-    var strings = try string_zig.init (std.testing.allocator);
-    defer strings.deinit ();
+    try string_zig.init (std.testing.allocator);
+    defer string_zig.deinit ();
 
     const v0 = Value.boolean (true);
     const v1 = Value.boolean (false);
@@ -158,9 +159,9 @@ test "value: init"
     const v4 = Value.number (3.14159);
     const v5 = Value.number (2.71828);
 
-    _ = try strings.intern ("Hell");
-    const old = try strings.intern ("old");
-    const hello = try strings.intern ("Hello");
+    _ = try intern ("Hell");
+    const old = try intern ("old");
+    const hello = try intern ("Hello");
     const v6 = Value.string (hello);
     const v7 = Value.string (old);
 
@@ -170,8 +171,12 @@ test "value: init"
     try std.testing.expectFmt ("42", "{}", .{ v3 });
     try std.testing.expectFmt ("3.141590", "{}", .{ v4 });
     try std.testing.expectFmt ("2.718280", "{}", .{ v5 });
-    try std.testing.expectFmt ("0:5", "{}", .{ v6 });
-    try std.testing.expectFmt ("4:3", "{}", .{ v7 });
+    try std.testing.expectFmt ("Hello", "{}", .{ v6 });
+    try std.testing.expectFmt ("old", "{}", .{ v7 });
+
+    const v8 = Value.string (try intern ("Hello"));
+    try std.testing.expectFmt ("Hello", "{}", .{ v8 });
+    try std.testing.expectFmt ("'Hello'", "{'}", .{ v8 });
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////

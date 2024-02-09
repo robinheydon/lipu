@@ -8,42 +8,76 @@ const std = @import ("std");
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-pub const StringIntern = struct
+var string_memory : std.ArrayList (u8) = undefined;
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub fn init (allocator: std.mem.Allocator) !void
 {
-    string_memory : std.ArrayList (u8),
+    string_memory = try std.ArrayList (u8).initCapacity (allocator, 256*1024);
+}
 
-    pub fn deinit (self: *StringIntern) void
-    {
-        self.string_memory.deinit ();
-    }
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
 
-    pub fn intern (self: *StringIntern, slice: []const u8) !StringIndex
+pub fn deinit () void
+{
+    string_memory.deinit ();
+    string_memory = undefined;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub fn intern (slice: []const u8) !String
+{
+    if (std.mem.indexOf (u8, string_memory.items, slice)) |index|
     {
-        if (std.mem.indexOf (u8, self.string_memory.items, slice)) |index|
-        {
-            return .{
-                .index = @truncate (index),
-                .len = @truncate (slice.len),
-            };
-        }
-        const index = self.string_memory.items.len;
-        try self.string_memory.appendSlice (slice);
         return .{
             .index = @truncate (index),
             .len = @truncate (slice.len),
         };
     }
+    const index = string_memory.items.len;
+    try string_memory.appendSlice (slice);
+    return .{
+        .index = @truncate (index),
+        .len = @truncate (slice.len),
+    };
+}
 
-    pub fn get (self: *StringIntern, str: StringIndex) []const u8
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub fn dump (writer: anytype) !void
+{
+    try writer.print ("\"{}\"", .{
+        std.zig.fmtEscapes (string_memory.items),
+    });
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub const String = packed struct
+{
+    index: u32,
+    len: u32,
+
+    pub fn get (self: String) []const u8
     {
-        const index = str.index;
-        const len = str.len;
-        const slice = self.string_memory.items[index .. index+len];
-
-        return slice;
+        const index = self.index;
+        const len = self.len;
+        return string_memory.items[index .. index+len];
     }
 
-    pub fn concat (self: *StringIntern, lhs: StringIndex, rhs: StringIndex) !StringIndex
+    pub fn concat (lhs: String, rhs: String) !String
     {
         if (lhs.index + lhs.len == rhs.index)
         {
@@ -53,47 +87,52 @@ pub const StringIntern = struct
             };
         }
 
-        const left = self.get (lhs);
-        const right = self.get (rhs);
+        const left = lhs.get ();
+        const right = rhs.get ();
 
-        const index = self.string_memory.items.len;
-        try self.string_memory.appendSlice (left);
-        try self.string_memory.appendSlice (right);
+        const index = string_memory.items.len;
+        try string_memory.appendSlice (left);
+        try string_memory.appendSlice (right);
         return .{
             .index = @truncate (index),
             .len = @truncate (left.len + right.len),
         };
     }
 
-    pub fn dump (self: *StringIntern, writer: anytype) !void
+    pub fn format (self: String, fmt:anytype, _:anytype, writer: anytype) !void
     {
-        try writer.print ("\"{}\"", .{
-            std.zig.fmtEscapes (self.string_memory.items),
-        });
+        var use_single_quotes = false;
+        var use_double_quotes = false;
+
+        for (fmt) |ch|
+        {
+            if (ch == '\'')
+            {
+                use_single_quotes = true;
+                use_double_quotes = false;
+            }
+            else if (ch == '\"')
+            {
+                use_single_quotes = false;
+                use_double_quotes = true;
+            }
+        }
+
+        const slice = self.get ();
+        if (use_single_quotes)
+        {
+            try writer.print ("\'{'}\'", .{ std.zig.fmtEscapes (slice) });
+        }
+        else if (use_double_quotes)
+        {
+            try writer.print ("\"{}\"", .{ std.zig.fmtEscapes (slice) });
+        }
+        else
+        {
+            try writer.writeAll (slice);
+        }
     }
-
 };
-
-///////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////
-
-pub const StringIndex = packed struct
-{
-    index: u32,
-    len: u32,
-};
-
-///////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////
-
-pub fn init (allocator: std.mem.Allocator) !StringIntern
-{
-    return .{
-        .string_memory = try std.ArrayList (u8).initCapacity (allocator, 256*1024),
-    };
-}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -101,8 +140,24 @@ pub fn init (allocator: std.mem.Allocator) !StringIntern
 
 test "string: init"
 {
-    var strings = try init (std.testing.allocator);
-    defer strings.deinit ();
+    try init (std.testing.allocator);
+    defer deinit ();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+test "string: format"
+{
+    try init (std.testing.allocator);
+    defer deinit ();
+
+    const onetwo = try intern ("one's \"two\"\n");
+
+    try std.testing.expectFmt ("one's \"two\"\n", "{}", .{ onetwo });
+    try std.testing.expectFmt ("'one\\'s \"two\"\\n'", "{'}", .{ onetwo });
+    try std.testing.expectFmt ("\"one's \\\"two\\\"\\n\"", "{\"}", .{ onetwo });
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,21 +166,21 @@ test "string: init"
 
 test "string: hello world"
 {
-    var strings = try init (std.testing.allocator);
-    defer strings.deinit ();
+    try init (std.testing.allocator);
+    defer deinit ();
 
-    const hello = try strings.intern ("Hello");
-    const world = try strings.intern ("World");
-    const hello2 = try strings.intern ("Hello");
-    const hell = try strings.intern ("Hell");
+    const hello = try intern ("Hello");
+    const world = try intern ("World");
+    const hello2 = try intern ("Hello");
+    const hell = try intern ("Hell");
 
-    const hi = strings.get (hello);
+    const hi = hello.get ();
     try std.testing.expectFmt ("Hello", "{s}", .{ hi });
 
-    const monde = strings.get (world);
+    const monde = world.get ();
     try std.testing.expectFmt ("World", "{s}", .{ monde });
 
-    const hi2 = strings.get (hello2);
+    const hi2 = hello2.get ();
     try std.testing.expectFmt ("Hello", "{s}", .{ hi2 });
 
     try std.testing.expectEqual (hi, hi2);
@@ -139,30 +194,29 @@ test "string: hello world"
 
 test "string: concatination"
 {
-    var strings = try init (std.testing.allocator);
-    defer strings.deinit ();
+    try init (std.testing.allocator);
+    defer deinit ();
 
-    const hello = try strings.intern ("Hello");
-    const comma = try strings.intern (",");
-    const space = try strings.intern (" ");
-    const world = try strings.intern ("World");
-    const bang = try strings.intern ("!");
+    const hello = try intern ("Hello");
+    const comma = try intern (",");
+    const space = try intern (" ");
+    const world = try intern ("World");
+    const bang = try intern ("!");
 
-    const hc = try strings.concat (hello, comma);
-    const hcs = try strings.concat (hc, space);
-    const hcsw = try strings.concat (hcs, world);
-    const hcswb = try strings.concat (hcsw, bang);
+    const hc = try hello.concat (comma);
+    const hcs = try hc.concat (space);
+    const hcsw = try hcs.concat (world);
+    const hcswb = try hcsw.concat (bang);
 
-    const phrase = strings.get (hcswb);
-    try std.testing.expectFmt ("Hello, World!", "{s}", .{ phrase });
+    try std.testing.expectFmt ("Hello, World!", "{s}", .{ hcswb });
 
-    var dump = std.ArrayList (u8).init (std.testing.allocator);
-    defer dump.deinit ();
+    var buffer = std.ArrayList (u8).init (std.testing.allocator);
+    defer buffer.deinit ();
 
-    const writer = dump.writer ();
-    try strings.dump (writer);
+    const writer = buffer.writer ();
+    try dump (writer);
 
-    try std.testing.expectFmt ("\"Hello, World!\"", "{s}", .{dump.items});
+    try std.testing.expectFmt ("\"Hello, World!\"", "{s}", .{buffer.items});
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -171,30 +225,33 @@ test "string: concatination"
 
 test "string: hard concatination"
 {
-    var strings = try init (std.testing.allocator);
-    defer strings.deinit ();
+    try init (std.testing.allocator);
+    defer deinit ();
 
-    const space = try strings.intern (" ");
-    const bang = try strings.intern ("!");
-    const comma = try strings.intern (",");
-    const hello = try strings.intern ("Hello");
-    const world = try strings.intern ("World");
+    const space = try intern (" ");
+    const bang = try intern ("!");
+    const comma = try intern (",");
+    const hello = try intern ("Hello");
+    const world = try intern ("World");
 
-    const hc = try strings.concat (hello, comma);
-    const hcs = try strings.concat (hc, space);
-    const hcsw = try strings.concat (hcs, world);
-    const hcswb = try strings.concat (hcsw, bang);
+    const hc = try hello.concat (comma);
+    const hcs = try hc.concat (space);
+    const hcsw = try hcs.concat (world);
+    const hcswb = try hcsw.concat (bang);
 
-    const phrase = strings.get (hcswb);
-    try std.testing.expectFmt ("Hello, World!", "{s}", .{ phrase });
+    try std.testing.expectFmt ("Hello, World!", "{}", .{ hcswb });
 
-    var dump = std.ArrayList (u8).init (std.testing.allocator);
-    defer dump.deinit ();
+    var buffer = std.ArrayList (u8).init (std.testing.allocator);
+    defer buffer.deinit ();
 
-    const writer = dump.writer ();
-    try strings.dump (writer);
+    const writer = buffer.writer ();
+    try dump (writer);
 
-    try std.testing.expectFmt ("\" !,HelloWorldHello,Hello, Hello, WorldHello, World!\"", "{s}", .{dump.items});
+    try std.testing.expectFmt (
+        "\" !,HelloWorldHello,Hello, Hello, WorldHello, World!\"",
+        "{s}",
+        .{buffer.items}
+    );
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////

@@ -21,7 +21,7 @@ const parse_zig = @import ("parse.zig");
 const parse = parse_zig.parse;
 
 const string_zig = @import ("string.zig");
-const StringIntern = string_zig.StringIntern;
+const intern = string_zig.intern;
 
 pub const log = @import ("log.zig");
 
@@ -54,7 +54,6 @@ pub const Lipu = struct
     files : std.ArrayList ([]const u8),
     filenames : std.StringHashMap (FileIndex),
     tree : Tree,
-    strings : StringIntern,
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -76,7 +75,7 @@ pub const Lipu = struct
 
         self.tree.deinit ();
 
-        self.strings.deinit ();
+        string_zig.deinit ();
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -179,8 +178,9 @@ pub fn init (options: LipuOptions) !*Lipu
         .files = std.ArrayList ([]const u8).init (options.allocator),
         .filenames = std.StringHashMap (FileIndex).init (options.allocator),
         .tree = Tree.init (options.allocator, self),
-        .strings = try string_zig.init (options.allocator),
     };
+
+    try string_zig.init (options.allocator);
 
     return self;
 }
