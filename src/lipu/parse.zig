@@ -10,17 +10,18 @@ const std = @import ("std");
 
 const log = @import ("log.zig");
 
-const lipu = @import ("lipu.zig");
-const Lipu = lipu.Lipu;
-const FileIndex = lipu.FileIndex;
+const lipu_zig = @import ("lipu.zig");
+const Lipu = lipu_zig.Lipu;
+const FileIndex = lipu_zig.FileIndex;
 
-const tree = @import ("tree.zig");
-const NodeIndex = tree.NodeIndex;
+const tree_zig = @import ("tree.zig");
+const NodeIndex = tree_zig.NodeIndex;
 
-const token = @import ("token.zig");
-const TokenIter = token.TokenIter;
+const token_zig = @import ("token.zig");
+const TokenIter = token_zig.TokenIter;
 
-const testing = @import ("testing.zig");
+const testing_zig = @import ("testing.zig");
+const test_parse = testing_zig.test_parse;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -99,7 +100,7 @@ test "parse: hello"
         \\        :     end_of_line
         ;
 
-    try testing.test_parse (content, expected);
+    try test_parse (content, expected);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -122,7 +123,7 @@ test "parse: blocks"
         \\        :     digit "4"
         ;
 
-    try testing.test_parse (content, expected);
+    try test_parse (content, expected);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -155,7 +156,7 @@ test "parse: nested blocks"
         \\        :     digit "9"
         ;
 
-    try testing.test_parse (content, expected);
+    try test_parse (content, expected);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -175,7 +176,7 @@ test "parse: missing open block"
         \\        :     close_block "}"
         ;
 
-    try testing.test_parse (content, expected);
+    try test_parse (content, expected);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -196,7 +197,7 @@ test "parse: missing close block"
         \\        :       digit "2"
         ;
 
-    try testing.test_parse (content, expected);
+    try test_parse (content, expected);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////

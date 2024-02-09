@@ -10,15 +10,15 @@ const std = @import ("std");
 
 const log = @import ("log.zig");
 
-const lipu = @import ("lipu.zig");
-const Lipu = lipu.Lipu;
-const FileIndex = lipu.FileIndex;
+const lipu_zig = @import ("lipu.zig");
+const Lipu = lipu_zig.Lipu;
+const FileIndex = lipu_zig.FileIndex;
 
-const tree = @import ("tree.zig");
-const NodeIndex = tree.NodeIndex;
+const tree_zig = @import ("tree.zig");
+const NodeIndex = tree_zig.NodeIndex;
 
-const token = @import ("token.zig");
-const TokenIter = token.TokenIter;
+const token_zig = @import ("token.zig");
+const TokenIter = token_zig.TokenIter;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -89,7 +89,7 @@ fn compare_text (expected: []const u8, output: []const u8, writer: anytype) !voi
 
 pub fn test_parse (input_text: []const u8, expected: []const u8) !void
 {
-    var doc = try lipu.init (.{
+    var doc = try lipu_zig.init (.{
         .allocator = std.testing.allocator,
     });
     defer std.testing.allocator.destroy (doc);

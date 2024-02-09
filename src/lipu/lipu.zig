@@ -9,13 +9,19 @@ const testing = std.testing;
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-const token = @import ("token.zig");
-const TokenIndex = token.TokenIndex;
+const token_zig = @import ("token.zig");
+const TokenIndex = token_zig.TokenIndex;
+const TokenIter = token_zig.TokenIter;
+const tokenize = token_zig.tokenize;
 
-const tree = @import ("tree.zig");
-const Tree = tree.Tree;
+const tree_zig = @import ("tree.zig");
+const Tree = tree_zig.Tree;
 
-const parse = @import ("parse.zig");
+const parse_zig = @import ("parse.zig");
+const parse = parse_zig.parse;
+
+const string_zig = @import ("string.zig");
+const StringIntern = string_zig.StringIntern;
 
 pub const log = @import ("log.zig");
 
@@ -48,20 +54,44 @@ pub const Lipu = struct
     files : std.ArrayList ([]const u8),
     filenames : std.StringHashMap (FileIndex),
     tree : Tree,
+    strings : StringIntern,
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    pub fn deinit (self: *Lipu) void
+    {
+        for (self.files.items) |item|
+        {
+            self.allocator.free (item);
+        }
+        self.files.deinit ();
+
+        var iter = self.filenames.iterator ();
+        while (iter.next ()) |kv|
+        {
+            const filename = kv.key_ptr.*;
+            self.allocator.free (filename);
+        }
+        self.filenames.deinit ();
+
+        self.tree.deinit ();
+
+        self.strings.deinit ();
+    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
     pub fn import (self: *Lipu, filename: []const u8) !void
     {
         const cwd = std.fs.cwd ();
-        const content = try cwd.readFileAlloc (self.allocator, filename, std.math.maxInt (token.TokenIndex));
+        const content = try cwd.readFileAlloc (self.allocator, filename, std.math.maxInt (TokenIndex));
 
         const file : FileIndex = @intCast (self.files.items.len);
         const filename_copy = try self.allocator.dupe (u8, filename);
         try self.files.append (content);
         try self.filenames.put (filename_copy, file);
 
-        var iter = token.tokenize (content);
+        var iter = token_zig.tokenize (content);
         if (self.debug_tokens)
         {
             const output = try iter.dump (self.allocator);
@@ -69,7 +99,7 @@ pub const Lipu = struct
             log.debug ("tokens", "{s}", .{output});
         }
 
-        try parse.parse (self, &iter, file);
+        try parse_zig.parse (self, &iter, file);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -81,7 +111,7 @@ pub const Lipu = struct
         try self.files.append (content);
         try self.filenames.put (filename_copy, file);
 
-        var iter = token.tokenize (content);
+        var iter = tokenize (content);
         if (self.debug_tokens)
         {
             const output = try iter.dump (self.allocator);
@@ -89,7 +119,7 @@ pub const Lipu = struct
             log.debug ("tokens", "{s}", .{output});
         }
 
-        try parse.parse (self, &iter, file);
+        try parse (self, &iter, file);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -112,27 +142,6 @@ pub const Lipu = struct
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
-    pub fn deinit (self: *Lipu) void
-    {
-        for (self.files.items) |item|
-        {
-            self.allocator.free (item);
-        }
-        self.files.deinit ();
-
-        var iter = self.filenames.iterator ();
-        while (iter.next ()) |kv|
-        {
-            const filename = kv.key_ptr.*;
-            self.allocator.free (filename);
-        }
-        self.filenames.deinit ();
-
-        self.tree.deinit ();
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////
-
     pub fn getSlice (self: Lipu, file: FileIndex, index: TokenIndex) []const u8
     {
         if (file >= self.files.items.len)
@@ -141,7 +150,7 @@ pub const Lipu = struct
         }
 
         const content = self.files.items[file];
-        var iter = token.TokenIter {
+        var iter = TokenIter {
             .content = content,
             .index = index,
         };
@@ -170,6 +179,7 @@ pub fn init (options: LipuOptions) !*Lipu
         .files = std.ArrayList ([]const u8).init (options.allocator),
         .filenames = std.StringHashMap (FileIndex).init (options.allocator),
         .tree = Tree.init (options.allocator, self),
+        .strings = try string_zig.init (options.allocator),
     };
 
     return self;
@@ -188,9 +198,11 @@ test "check version" {
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 test "tokens" {
-    _ = @import ("token.zig");
     _ = @import ("parse.zig");
     _ = @import ("testing.zig");
+    _ = @import ("token.zig");
+    _ = @import ("value.zig");
+    _ = @import ("string.zig");
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////

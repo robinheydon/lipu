@@ -6,13 +6,13 @@ const std = @import ("std");
 
 const log = @import ("log.zig");
 
-const token = @import ("token.zig");
-const TokenKind = token.TokenKind;
-const TokenIndex = token.TokenIndex;
+const token_zig = @import ("token.zig");
+const TokenKind = token_zig.TokenKind;
+const TokenIndex = token_zig.TokenIndex;
 
-const lipu = @import ("lipu.zig");
-const Lipu = lipu.Lipu;
-const FileIndex = lipu.FileIndex;
+const lipu_zig = @import ("lipu.zig");
+const Lipu = lipu_zig.Lipu;
+const FileIndex = lipu_zig.FileIndex;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////

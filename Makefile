@@ -23,10 +23,10 @@ zig-out/bin/lipu : $(SRCS)
 	@zig build --summary all --color on -freference-trace=32
 
 test :
-	@zig build test --summary all --color on -freference-trace=32
+	@zig build test -j1 --summary all --color on -freference-trace=32
 
 coverage :
-	@zig build coverage --summary all --color on -freference-trace=32
+	@zig build coverage -j1 --summary all --color on -freference-trace=32
 	@python3 tools/coverage.py kcov-out/coverage/kcov-merged
 
 clean :
