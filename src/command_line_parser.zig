@@ -12,7 +12,8 @@ pub const Options = struct
     d_args : bool = false,
     d_tokens : bool = false,
     d_ast : bool = false,
-    d_parsing : bool = false,
+    d_parse : bool = false,
+    d_exec : bool = false,
 
     pub fn deinit (self: *Options) void
     {
@@ -82,7 +83,9 @@ pub const Options = struct
         try writer.writeAll (add);
         try writer.print (".d_ast={}", .{self.d_ast});
         try writer.writeAll (add);
-        try writer.print (".d_parsing={}", .{self.d_parsing});
+        try writer.print (".d_parse={}", .{self.d_parse});
+        try writer.writeAll (add);
+        try writer.print (".d_exec={}", .{self.d_exec});
         for (0.., self.errors.items) |i, message|
         {
             try writer.writeAll (add);
@@ -146,9 +149,13 @@ pub fn parse (allocator: std.mem.Allocator, args: []const []const u8) !Options
         {
             options.d_ast = true;
         }
-        else if (std.mem.eql (u8, args[i], "-Dparsing"))
+        else if (std.mem.eql (u8, args[i], "-Dparse"))
         {
-            options.d_parsing = true;
+            options.d_parse = true;
+        }
+        else if (std.mem.eql (u8, args[i], "-Dexec"))
+        {
+            options.d_exec = true;
         }
         else if (args[i][0] == '-')
         {
@@ -184,7 +191,8 @@ test "command_line_parser: options"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -197,7 +205,7 @@ test "command_line_parser: null options inline"
     defer options.deinit ();
 
     const expected =
-        \\Options{ .verbosity=0, .quiet=false, .d_args=false, .d_tokens=false, .d_ast=false, .d_parsing=false }
+        \\Options{ .verbosity=0, .quiet=false, .d_args=false, .d_tokens=false, .d_ast=false, .d_parse=false, .d_exec=false }
         ;
 
     try std.testing.expectFmt (expected, "{}", .{options});
@@ -215,7 +223,8 @@ test "command_line_parser: -v"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -234,7 +243,8 @@ test "command_line_parser: -vv"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -253,7 +263,8 @@ test "command_line_parser: -vvv"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -272,7 +283,8 @@ test "command_line_parser: -q"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -291,7 +303,8 @@ test "command_line_parser: --quiet"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -310,7 +323,8 @@ test "command_line_parser: -unknown-flag"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\  .errors[0]="Argument \"-unknown-flag\" is unknown",
         \\}
         ;
@@ -332,7 +346,8 @@ test "command_line_parser: input files"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -354,7 +369,8 @@ test "command_line_parser: output files"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -374,7 +390,8 @@ test "command_line_parser: log_filename"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -393,7 +410,8 @@ test "command_line_parser: debug args"
         \\  .d_args=true,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -412,7 +430,8 @@ test "command_line_parser: debug tokens"
         \\  .d_args=false,
         \\  .d_tokens=true,
         \\  .d_ast=false,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -431,7 +450,8 @@ test "command_line_parser: debug ast"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=true,
-        \\  .d_parsing=false,
+        \\  .d_parse=false,
+        \\  .d_exec=false,
         \\}
         ;
 
@@ -440,7 +460,7 @@ test "command_line_parser: debug ast"
 
 test "command_line_parser: debug parsing"
 {
-    var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-Dparsing"});
+    var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-Dparse"});
     defer options.deinit ();
 
     const expected =
@@ -450,7 +470,28 @@ test "command_line_parser: debug parsing"
         \\  .d_args=false,
         \\  .d_tokens=false,
         \\  .d_ast=false,
-        \\  .d_parsing=true,
+        \\  .d_parse=true,
+        \\  .d_exec=false,
+        \\}
+        ;
+
+    try std.testing.expectFmt (expected, "{n}", .{options});
+}
+
+test "command_line_parser: debug exec"
+{
+    var options = try parse (std.testing.allocator, &[_][]const u8 {"name.exe", "-Dexec"});
+    defer options.deinit ();
+
+    const expected =
+        \\Options{
+        \\  .verbosity=0,
+        \\  .quiet=false,
+        \\  .d_args=false,
+        \\  .d_tokens=false,
+        \\  .d_ast=false,
+        \\  .d_parse=false,
+        \\  .d_exec=true,
         \\}
         ;
 

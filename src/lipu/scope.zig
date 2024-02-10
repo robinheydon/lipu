@@ -81,6 +81,11 @@ pub const Scope = struct
         self.table.deinit ();
     }
 
+    pub fn get (self: *Scope, key: String) ?Value
+    {
+        return self.table.get (key);
+    }
+
     pub fn set (self: *Scope, key: String, value: Value) !void
     {
         try self.table.put (key, value);

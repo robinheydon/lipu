@@ -32,7 +32,7 @@ pub fn parse (lipu: *Lipu, iter: *TokenIter, file: FileIndex) !Tree
 {
     var tree = Tree.init (lipu.allocator, lipu);
 
-    const index = try tree.append (null, .document, 0, file);
+    const index = try tree.append (null, .document, 0, 0);
 
     while (iter.next ()) |tk|
     {

@@ -20,6 +20,9 @@ const Tree = tree_zig.Tree;
 const parse_zig = @import ("parse.zig");
 const parse = parse_zig.parse;
 
+const exec_zig = @import ("exec.zig");
+const exec = exec_zig.exec;
+
 const string_zig = @import ("string.zig");
 const String = string_zig.String;
 const intern = string_zig.intern;
@@ -63,7 +66,8 @@ pub const Lipu = struct
     files : std.ArrayList ([]const u8),
     filenames : std.StringHashMap (FileIndex),
     scopes: Scopes,
-    global: ScopeIndex = undefined,
+    global: ScopeIndex,
+    current_scope : ScopeIndex,
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -131,6 +135,25 @@ pub const Lipu = struct
         }
 
         return try parse (self, &iter, file);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    pub fn exec (self: *Lipu, parse_tree: Tree) !Tree
+    {
+        return exec_zig.exec (self, parse_tree);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    pub fn lookup (self: *Lipu, str: String) ?Value
+    {
+        const scope = self.scopes.get (self.current_scope);
+        if (scope.get (str)) |value|
+        {
+            return value;
+        }
+        return null;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -232,6 +255,7 @@ pub fn create (options: LipuOptions) !*Lipu
         .filenames = std.StringHashMap (FileIndex).init (options.allocator),
         .scopes = scopes,
         .global = global,
+        .current_scope = global,
     };
 
     return self;

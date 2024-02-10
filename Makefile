@@ -8,7 +8,8 @@ ARGS += test.lipu
 ARGS += -o test.ast
 # ARGS += -Dargs
 # ARGS += -Dtokens
-ARGS += -Dparsing
+ARGS += -Dparse
+ARGS += -Dexec
 ARGS += -l test.log
 
 all : coverage

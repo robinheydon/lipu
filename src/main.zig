@@ -68,12 +68,25 @@ pub fn main() !void {
     };
     defer parse_tree.deinit ();
 
+    if (options.d_parse)
     {
         var buffer = std.ArrayList (u8).init (allocator);
         defer buffer.deinit ();
         const writer = buffer.writer ();
         try parse_tree.dump (writer);
-        log.info ("{s}", .{buffer.items});
+        log.debug ("parse", "{s}", .{buffer.items});
+    }
+
+    var exec_tree = try doc.exec (parse_tree);
+    defer exec_tree.deinit ();
+
+    if (options.d_exec)
+    {
+        var buffer = std.ArrayList (u8).init (allocator);
+        defer buffer.deinit ();
+        const writer = buffer.writer ();
+        try exec_tree.dump (writer);
+        log.debug ("exec", "{s}", .{buffer.items});
     }
 
     {

@@ -95,6 +95,76 @@ pub const Tree = struct
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
+    pub const IndexNode = struct
+    {
+        index: NodeIndex,
+        node: Node,
+    };
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    pub const Iterator = struct
+    {
+        tree: *const Tree,
+        index: NodeIndex,
+
+        pub fn next (self: *Iterator) ?IndexNode
+        {
+            if (self.index < self.tree.nodes.items.len)
+            {
+                const index = self.index;
+                const node = self.tree.nodes.items[self.index];
+
+                if (node.next_sibling == 0)
+                {
+                    self.index = @truncate (self.tree.nodes.items.len);
+                }
+                else
+                {
+                    self.index = node.next_sibling;
+                }
+
+                return .{
+                    .node = node,
+                    .index = index,
+                };
+            }
+            return null;
+        }
+
+        pub fn children (self: *Iterator, index: NodeIndex) @This()
+        {
+            if (index < self.tree.nodes.items.len)
+            {
+                const node = self.tree.nodes.items[index];
+
+                if (node.first_child != 0)
+                {
+                    return .{
+                        .tree = self.tree,
+                        .index = node.first_child,
+                    };
+                }
+            }
+            return .{
+                .tree = self.tree,
+                .index = @truncate (self.tree.nodes.items.len),
+            };
+        }
+    };
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    pub fn iterator (self: *const Tree, index: NodeIndex) Iterator
+    {
+        return .{
+            .tree = self,
+            .index = index,
+        };
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
     pub fn dump (self: Tree, writer: anytype) !void
     {
         try self.dump_node (0, 0, false, writer);
